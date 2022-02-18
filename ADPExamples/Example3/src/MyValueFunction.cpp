@@ -5,8 +5,6 @@ StateDecisionPair::StateDecisionPair(const StateSharedPtr s, const DecisionShare
     const auto sCast = std::dynamic_pointer_cast<MyState>(s);
     const auto dCast = std::dynamic_pointer_cast<MyDecision>(d);
 
-    if(dCast == nullptr) std::cout << "QEWRAEWFASDF" << std::endl;
-
     for(int i = 0; i < 2; i++)
         stateDecisionPair_[i] = sCast->GetTriagePopulations(i);
 
@@ -45,6 +43,12 @@ std::array<int,4>
 StateDecisionPair::GetArray() const
 {
     return stateDecisionPair_;
+}
+
+std::string
+StateDecisionPair::ToString() const
+{
+    return Util::ToString(stateDecisionPair_);
 }
 
 size_t 

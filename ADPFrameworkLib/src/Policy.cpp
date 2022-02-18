@@ -21,33 +21,3 @@ Policy::operator() (const StateSharedPtr s) const
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-LUTPolicy::LUTPolicy()
-{
-
-}
-
-LUTPolicy::~LUTPolicy()
-{
-
-}
-
-DecisionSharedPtr 
-LUTPolicy::operator() (const StateSharedPtr s) const
-{
-    DecisionSharedPtr d = nullptr;
-
-    const auto iter = lookupTable_.find(s);
-
-    if(iter != lookupTable_.end())
-    {
-        d = lookupTable_.at(s);
-    }
-
-    return d;
-}
-
-void 
-LUTPolicy::UpdatePolicy(const StateSharedPtr s, const DecisionSharedPtr d)
-{
-    lookupTable_.emplace(s, d);
-}

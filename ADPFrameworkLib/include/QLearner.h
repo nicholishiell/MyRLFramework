@@ -18,12 +18,15 @@ using namespace Util;
 // CLASS DEFINITION
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-template<class KEY, class HASH>
+template<   class KEY, 
+            class TABLE_HASH, class TABLE_EQUAL, 
+            class STATE_HASH, class STATE_EQUAL>
 class QLearner
 {
 public:
 
-    using LUTSharedPtr = std::shared_ptr<LUTValueFunction<KEY,HASH>>;
+    using QTableSharedPtr = std::shared_ptr<LUTValueFunction<KEY,TABLE_HASH, TABLE_EQUAL>>;
+    using LUTPolicySharedPtr = std::shared_ptr<LUTPolicy<STATE_HASH, STATE_EQUAL>>;
 
     QLearner();
     QLearner(const double alpha, const double epsilon);
@@ -37,10 +40,12 @@ public:
     void SetAlpha(const double alpha);      // Sets initial value
     void SetEpsilon(const double epsilon);  // Sets initial value
 
-    double GetAlpha() const;                  // Gets current value
-    double GetEpsilon() const;                // Gets current value
+    double GetAlpha() const;                // Gets current value
+    double GetEpsilon() const;              // Gets current value
 
-    LUTSharedPtr GetLearnedQTable() const;
+    QTableSharedPtr GetLearnedQTable() const;
+
+    LUTPolicySharedPtr GetLearnedPolicy() const;
 
     void Reset();                           // clears all internal state data
     
@@ -72,6 +77,8 @@ private:
 
     void outputPolicy(const MarkovDecisionProcess& mdp);
 
+    double getRandom();
+
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Private Members
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -82,54 +89,89 @@ private:
     double epsilonInitial_; // greedy "rate"
     double epsilonCurrent_;
 
-    LUTSharedPtr qTable_;
+    QTableSharedPtr qTable_;
 
-    LUTPolicy qTablePolicy_;
+    LUTPolicySharedPtr learnedPolicy_;
 
     std::mt19937 gen_;
+    std::uniform_real_distribution<double> epsilonGreedyDist_;
 };
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // FUNCTION DEFINITIONS
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-template<class KEY, class HASH>
-void
-QLearner<KEY,HASH>::outputPolicy(const MarkovDecisionProcess& mdp)
+template<class KEY, class TABLE_HASH, class TABLE_EQUAL, class STATE_HASH, class STATE_EQUAL>
+double 
+QLearner<KEY,TABLE_HASH,TABLE_EQUAL,STATE_HASH,STATE_EQUAL>::getRandom()
 {
-    for(const auto s : mdp.GetStateSpace())
-    {
-        DecisionSharedPtr decision;
-        double highestValue = VERY_NEGATIVE_NUMBER;
-
-        for(const auto d : mdp.GetLegalDecisions(s))
-        {
-            KEY k(s,d);  
-            const auto value = (*qTable_)(k);
-
-            if(value > highestValue)
-            {
-                highestValue = value;
-                decision = d;
-            }
-
-        }
-
-        std::cout << s->ToString() << " | " << decision->ToString() << "\t" << highestValue << std::endl;
-        std::cin.get();
-    }
+    return epsilonGreedyDist_(gen_);
 }
 
-template<class KEY, class HASH>
+template<class KEY, class TABLE_HASH, class TABLE_EQUAL, class STATE_HASH, class STATE_EQUAL>
+QLearner<KEY,TABLE_HASH,TABLE_EQUAL,STATE_HASH,STATE_EQUAL>::QLearner()
+{
+    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+    gen_ = std::mt19937(seed);
+
+    epsilonGreedyDist_ = std::uniform_real_distribution<double>(0.,1.);
+}
+
+template<class KEY, class TABLE_HASH, class TABLE_EQUAL, class STATE_HASH, class STATE_EQUAL>
+QLearner<KEY,TABLE_HASH,TABLE_EQUAL,STATE_HASH,STATE_EQUAL>::QLearner(const double alpha, const double epsilon) 
+: QLearner()
+{
+    alphaInitial_ = alpha;
+    alphaCurrent_ = alpha;
+
+    epsilonInitial_ = epsilon;
+    epsilonCurrent_ = epsilon;
+}
+
+template<class KEY, class TABLE_HASH, class TABLE_EQUAL, class STATE_HASH, class STATE_EQUAL>
+QLearner<KEY,TABLE_HASH,TABLE_EQUAL,STATE_HASH,STATE_EQUAL>::~QLearner()
+{
+
+}
+
+template<class KEY, class TABLE_HASH, class TABLE_EQUAL, class STATE_HASH, class STATE_EQUAL>
+DecisionSharedPtr 
+QLearner<KEY,TABLE_HASH,TABLE_EQUAL,STATE_HASH,STATE_EQUAL>::getEpsilonGreedyAction(const StateSharedPtr state, 
+                                                                                    DecisionSpace legalDecisionSpace)
+{
+    DecisionSharedPtr decision = nullptr;
+
+    auto randomNumber = getRandom();
+
+    if(randomNumber < epsilonCurrent_)
+    {
+        std::random_shuffle(legalDecisionSpace.begin(),legalDecisionSpace.end());
+        decision = legalDecisionSpace[0];
+    }
+    else
+    {
+        decision = (*learnedPolicy_)(state);
+    }
+
+    return decision;
+}
+
+
+template<   class KEY, 
+            class TABLE_HASH, class TABLE_EQUAL, 
+            class STATE_HASH, class STATE_EQUAL>
 void 
-QLearner<KEY,HASH>::Learn(  MarkovDecisionProcess& mdp, 
-                            const int numberOfIterations,
-                            void (*updateLearningParameters)(const int, double&, double&))
+QLearner<KEY,TABLE_HASH,TABLE_EQUAL,STATE_HASH,STATE_EQUAL>::Learn( MarkovDecisionProcess& mdp, 
+                                                                    const int numberOfIterations,
+                                                                    void (*updateLearningParameters)(const int, double&, double&))
 {
     using namespace std::chrono;
 
     int iterCounter = 0;
-           
+
+    // Todo: this should be in the constructor, but get seg fault.
+    learnedPolicy_ = std::make_shared<LUTPolicy<STATE_HASH,STATE_EQUAL>>();
+
     // Arbitrarily initialize the Q table
     initializeQTable(mdp.GetInitialState(), mdp);
 
@@ -148,17 +190,18 @@ QLearner<KEY,HASH>::Learn(  MarkovDecisionProcess& mdp,
         
         // Generate a trajectory through the MDP
         while(!mdp.IsEndState())
-        {             
+        {       
             // ToDo: this function should just take in the mdp to shorten the arg list
             DecisionSharedPtr d = getEpsilonGreedyAction(   mdp.GetCurrentState(), 
                                                             mdp.GetLegalDecisions());
-            
-            if(d == nullptr) std::cout << "null" << std::endl;
+
+            if(d == nullptr) std::cout << "null decision pointer." << std::endl;
 
             // Create the state-decision pair object
             const auto currentState = mdp.GetCurrentState();
+
             KEY k(currentState,d); // Q(s,a)            
-            
+
             // Update the internal state of the MDP
             mdp.SetDecision(d); 
             mdp.UpdateDecision();
@@ -166,32 +209,19 @@ QLearner<KEY,HASH>::Learn(  MarkovDecisionProcess& mdp,
         
             // add the new state and all it's potential decisions into the qTable
             appendQTable(mdp.GetCurrentState(), mdp.GetLegalDecisions());
+
+            // update the policy
             updatePolicy(mdp.GetCurrentState(), mdp.GetLegalDecisions());
 
             // Get the reward form the MDP
             const auto reward = mdp.CalculateContribution();
             totalReward += reward;
-        
+
             // update the q table for the sd-pair previously defined
             const auto md = maxDecision(mdp.GetCurrentState(), mdp.GetLegalDecisions());
             double sdvfUpdate = (*qTable_)(k) + alphaCurrent_*(reward + mdp.GetGamma()*md - (*qTable_)(k));
+            
             qTable_->SetValue(k,sdvfUpdate);
-
-            updatePolicy(currentState, mdp.GetLegalDecisions(currentState));
-
-            std::cout   << "Current Step: "
-                        << currentState->ToString() << " + " 
-                        << d->ToString() << " -> "
-                        << mdp.GetCurrentState()->ToString() << "\t"
-                        << reward << std::endl;
-
-            std::cout << "current policy:" << std::endl;
-            for(const auto& kv : qTablePolicy_.GetTable())
-            {
-                std::cout << kv.first->ToString() << " -> " << kv.second->ToString() << std::endl;
-            }
-
-            std::cin.get();
         }
 
         if(iRun % 1000 == 0) 
@@ -205,110 +235,72 @@ QLearner<KEY,HASH>::Learn(  MarkovDecisionProcess& mdp,
                         << epsilonCurrent_ << "\t" 
                         << totalReward <<  "\t"
                         << qTable_->GetSize() << "\t"
+                        << learnedPolicy_->GetTable().size() << "\t" 
                         << deltaTime.count() << std::endl;
         }
     }
 
+    updatePolicy(mdp.GetCurrentState(), mdp.GetLegalDecisions());
 } 
 
-template<class KEY, class HASH>
-QLearner<KEY,HASH>::QLearner()
-{
-    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-    gen_ = std::mt19937(seed);
-}
-
-template<class KEY, class HASH>
-QLearner<KEY,HASH>::~QLearner()
-{
-
-}
-
-template<class KEY, class HASH>
-QLearner<KEY,HASH>::QLearner(const double alpha, const double epsilon)
-{
-    alphaInitial_ = alpha;
-    alphaCurrent_ = alpha;
-
-    epsilonInitial_ = epsilon;
-    epsilonCurrent_ = epsilon;
-    
-    QLearner();
-}
-
-template<class KEY, class HASH>
+template<class KEY, class TABLE_HASH, class TABLE_EQUAL, class STATE_HASH, class STATE_EQUAL>
 void 
-QLearner<KEY,HASH>::SetAlpha(const double alpha)
+QLearner<KEY,TABLE_HASH,TABLE_EQUAL,STATE_HASH,STATE_EQUAL>::SetAlpha(const double alpha)
 {
     alphaInitial_ = alpha;
     alphaCurrent_ = alpha;
 }
 
-template<class KEY, class HASH>
+template<class KEY, class TABLE_HASH, class TABLE_EQUAL, class STATE_HASH, class STATE_EQUAL>
 void 
-QLearner<KEY,HASH>::SetEpsilon(const double epsilon)
+QLearner<KEY,TABLE_HASH,TABLE_EQUAL,STATE_HASH,STATE_EQUAL>::SetEpsilon(const double epsilon)
 {
     epsilonInitial_ = epsilon;
     epsilonCurrent_ = epsilon;
 }
 
-template<class KEY, class HASH>
+template<class KEY, class TABLE_HASH, class TABLE_EQUAL, class STATE_HASH, class STATE_EQUAL>
 double
-QLearner<KEY,HASH>::GetAlpha() const
+QLearner<KEY,TABLE_HASH,TABLE_EQUAL,STATE_HASH,STATE_EQUAL>::GetAlpha() const
 {
     return alphaCurrent_;
 }
 
-template<class KEY, class HASH>
+template<class KEY, class TABLE_HASH, class TABLE_EQUAL, class STATE_HASH, class STATE_EQUAL>
 double 
-QLearner<KEY,HASH>::GetEpsilon() const
+QLearner<KEY,TABLE_HASH,TABLE_EQUAL,STATE_HASH,STATE_EQUAL>::GetEpsilon() const
 {
     return epsilonCurrent_;
 }
 
-template<class KEY, class HASH>
-std::shared_ptr<LUTValueFunction<KEY,HASH>>
-QLearner<KEY,HASH>::GetLearnedQTable() const
+template<class KEY, class TABLE_HASH, class TABLE_EQUAL, class STATE_HASH, class STATE_EQUAL>
+std::shared_ptr<LUTValueFunction<KEY,TABLE_HASH,TABLE_EQUAL>>
+QLearner<KEY,TABLE_HASH,TABLE_EQUAL,STATE_HASH,STATE_EQUAL>::GetLearnedQTable() const
 {
     return qTable_;
 }
 
-template<class KEY, class HASH>
-void 
-QLearner<KEY,HASH>::Reset()
+template<class KEY, class TABLE_HASH, class TABLE_EQUAL, class STATE_HASH, class STATE_EQUAL>
+std::shared_ptr<LUTPolicy<STATE_HASH, STATE_EQUAL>>
+QLearner<KEY,TABLE_HASH,TABLE_EQUAL,STATE_HASH,STATE_EQUAL>::GetLearnedPolicy() const
 {
+    return learnedPolicy_;
+}
+
+template<class KEY, class TABLE_HASH, class TABLE_EQUAL, class STATE_HASH, class STATE_EQUAL>
+void 
+QLearner<KEY,TABLE_HASH,TABLE_EQUAL,STATE_HASH,STATE_EQUAL>::Reset()
+{
+    // Todo: add learned policy here to get reset
     qTable_.reset();
     alphaCurrent_ = alphaInitial_;
     epsilonCurrent_ = epsilonInitial_;    
 }
 
-template<class KEY, class HASH>
+template<class KEY, class TABLE_HASH, class TABLE_EQUAL, class STATE_HASH, class STATE_EQUAL>
 DecisionSharedPtr 
-QLearner<KEY,HASH>::getEpsilonGreedyAction( const StateSharedPtr state, 
-                                            DecisionSpace legalDecisionSpace)
-{
-    DecisionSharedPtr decision = nullptr;
-
-    std::uniform_real_distribution<double> dist(0.0,1.0);
-    const double randomNumber = dist(gen_);
-
-    if(randomNumber < epsilonCurrent_)
-    {
-        std::random_shuffle(legalDecisionSpace.begin(),legalDecisionSpace.end());
-        decision = legalDecisionSpace[0];
-    }
-    else
-    {
-        decision = qTablePolicy_(state);
-    }
-
-    return decision;
-}
-
-template<class KEY, class HASH>
-DecisionSharedPtr 
-QLearner<KEY,HASH>::argMaxDecision( const StateSharedPtr state, 
-                                    const DecisionSpace legalDecisionSpace)
+QLearner<KEY,TABLE_HASH,TABLE_EQUAL,STATE_HASH,STATE_EQUAL>::argMaxDecision(const StateSharedPtr state, 
+                                                                            const DecisionSpace legalDecisionSpace)
 {
     DecisionSharedPtr decision = nullptr;
 
@@ -322,44 +314,46 @@ QLearner<KEY,HASH>::argMaxDecision( const StateSharedPtr state,
         if(value > highestValue)
         {
             highestValue = value;
-            decision = d->clone();
+            decision = d;//->clone();
         }
     }
 
     return decision;
 }
 
-template<class KEY, class HASH>
+template<class KEY, class TABLE_HASH, class TABLE_EQUAL, class STATE_HASH, class STATE_EQUAL>
 void 
-QLearner<KEY,HASH>::updatePolicy(   const StateSharedPtr state, 
-                                    const DecisionSpace legalDecisionSpace)
+QLearner<KEY,TABLE_HASH,TABLE_EQUAL,STATE_HASH,STATE_EQUAL>::updatePolicy(  const StateSharedPtr state, 
+                                                                            const DecisionSpace legalDecisionSpace)
 {
     const auto decision = argMaxDecision(state, legalDecisionSpace);
-
-    qTablePolicy_.UpdatePolicy(state, decision);
+    learnedPolicy_->UpdatePolicy(state, decision);
 }
 
-template<class KEY, class HASH>
+template<class KEY, class TABLE_HASH, class TABLE_EQUAL, class STATE_HASH, class STATE_EQUAL>
 void 
-QLearner<KEY,HASH>::appendQTable(   const StateSharedPtr state, 
-                                    const DecisionSpace legalDecisionSpace)
+QLearner<KEY,TABLE_HASH,TABLE_EQUAL,STATE_HASH,STATE_EQUAL>::appendQTable(  const StateSharedPtr state, 
+                                                                            const DecisionSpace legalDecisionSpace)
 {
-    std::uniform_real_distribution<double> dist(0.,1.);
-
     for(const auto& d : legalDecisionSpace)            
     {
         KEY k(state, d);
 
-        if(qTable_->Contains(k)) break;
-
-        qTable_->SetValue(k,dist(gen_));
+        if(qTable_->Contains(k))
+        {
+            break;
+        }
+        else
+        {
+            qTable_->SetValue(k,epsilonGreedyDist_(gen_));
+        }
     }    
 }
 
-template<class KEY, class HASH>
+template<class KEY, class TABLE_HASH, class TABLE_EQUAL, class STATE_HASH, class STATE_EQUAL>
 double 
-QLearner<KEY,HASH>::maxDecision(const StateSharedPtr state, 
-                                const DecisionSpace legalDecisionSpace)
+QLearner<KEY,TABLE_HASH,TABLE_EQUAL,STATE_HASH,STATE_EQUAL>::maxDecision(   const StateSharedPtr state, 
+                                                                            const DecisionSpace legalDecisionSpace)
 {
     double highestValue = VERY_NEGATIVE_NUMBER;
     
@@ -376,23 +370,23 @@ QLearner<KEY,HASH>::maxDecision(const StateSharedPtr state,
     return highestValue;
 }
 
-template<class KEY, class HASH>
+template<class KEY, class TABLE_HASH, class TABLE_EQUAL, class STATE_HASH, class STATE_EQUAL>
 void 
-QLearner<KEY,HASH>::defaultUpdateLearningParameters(const int nIter, 
-                                                    double& alpha, 
-                                                    double& epsilon)
+QLearner<KEY,TABLE_HASH,TABLE_EQUAL,STATE_HASH,STATE_EQUAL>::defaultUpdateLearningParameters(   const int nIter, 
+                                                                        double& alpha, 
+                                                                        double& epsilon)
 {
     std::cout << "[WARNING] QLearner base class updateLearningParameters method used..." << std::endl;
     
     return;
 }
 
-template<class KEY, class HASH>
+template<class KEY, class TABLE_HASH, class TABLE_EQUAL, class STATE_HASH, class STATE_EQUAL>
 void 
-QLearner<KEY,HASH>::initializeQTable(   const StateSharedPtr initialState, 
-                                        const MarkovDecisionProcess& mdp)
+QLearner<KEY,TABLE_HASH,TABLE_EQUAL,STATE_HASH,STATE_EQUAL>::initializeQTable(  const StateSharedPtr initialState, 
+                                                                                const MarkovDecisionProcess& mdp)
 {
-    qTable_ = std::make_shared<LUTValueFunction<KEY,HASH>>();
+    qTable_ = std::make_shared<LUTValueFunction<KEY,TABLE_HASH,TABLE_EQUAL>>();
 
     std::uniform_real_distribution<double> dist(0.,1.);
 
@@ -405,11 +399,11 @@ QLearner<KEY,HASH>::initializeQTable(   const StateSharedPtr initialState,
     } 
 }
 
-template<class KEY, class HASH>
+template<class KEY, class TABLE_HASH, class TABLE_EQUAL, class STATE_HASH, class STATE_EQUAL>
 void 
-QLearner<KEY,HASH>::initializeQTable(const MarkovDecisionProcess& mdp)
+QLearner<KEY,TABLE_HASH,TABLE_EQUAL,STATE_HASH,STATE_EQUAL>::initializeQTable(const MarkovDecisionProcess& mdp)
 {
-    qTable_ = std::make_shared<LUTValueFunction<KEY,HASH>>();
+    qTable_ = std::make_shared<LUTValueFunction<KEY,TABLE_HASH,TABLE_EQUAL>>();
 
     const auto stateSpace = mdp.GetStateSpace();
 
@@ -423,6 +417,32 @@ QLearner<KEY,HASH>::initializeQTable(const MarkovDecisionProcess& mdp)
         {
             KEY k (s,d);
             qTable_->SetValue(k, dist(gen_));
+        }
+    }
+}
+
+template<   class KEY, 
+            class TABLE_HASH, class TABLE_EQUAL, 
+            class STATE_HASH, class STATE_EQUAL>
+void
+QLearner<KEY,TABLE_HASH,TABLE_EQUAL,STATE_HASH,STATE_EQUAL>::outputPolicy(const MarkovDecisionProcess& mdp)
+{
+    for(const auto s : mdp.GetStateSpace())
+    {
+        DecisionSharedPtr decision;
+        double highestValue = VERY_NEGATIVE_NUMBER;
+
+        for(const auto d : mdp.GetLegalDecisions(s))
+        {
+            KEY k(s,d);  
+            const auto value = (*qTable_)(k);
+
+            if(value > highestValue)
+            {
+                highestValue = value;
+                decision = d;
+            }
+
         }
     }
 }

@@ -44,7 +44,7 @@ MarkovDecisionProcess::RunEpisode()
     {
         std::cout << "[ERROR] MDP can't RunEpisode with out initialState and decisionPolicy defined." << std::endl;
     }
-   
+
     high_resolution_clock::time_point t1, t2;
 
     while(!IsEndState())
@@ -55,7 +55,6 @@ MarkovDecisionProcess::RunEpisode()
         t1 = high_resolution_clock::now();
         currentDecision_ = (*decisionPolicy_)(currentState_);
         t2 = high_resolution_clock::now();
-
         deltaTimeGetDecision_ +=  duration_cast<duration<double>>(t2-t1).count();
 
         currentStep.d = currentDecision_;
@@ -79,7 +78,7 @@ MarkovDecisionProcess::RunEpisode()
         UpdateExogenous();
         t2 = high_resolution_clock::now();
         deltaTimeUpdateExogenous_ +=  duration_cast<duration<double>>(t2-t1).count();
-       
+
         t.emplace_back(currentStep);
     }
 
@@ -141,9 +140,24 @@ MarkovDecisionProcess::IsEndState() const
 double 
 MarkovDecisionProcess::CalculateContribution() const
 {
+    return CalculateContribution(GetCurrentState(),GetCurrentDecision());
+}
+
+double 
+MarkovDecisionProcess::CalculateContribution(   const StateSharedPtr state,
+                                                const DecisionSharedPtr decision) const
+{
     std::cout << "[WARNING] MarkovDecisionProcess base class CalculateContribution method used..." << std::endl;
     
     return 0.;
+}
+
+void 
+MarkovDecisionProcess::RecordLearning(const Step& s)
+{
+    std::cout << "[WARNING] MarkovDecisionProcess base class RecordLearning method used..." << std::endl;
+    
+    return;   
 }
 
 void 

@@ -23,6 +23,8 @@ public:
 
     bool operator== (const Decision& d);
 
+    DecisionSharedPtr clone() const;
+
 private:
 
     IntArray2d individualsToEvac_;

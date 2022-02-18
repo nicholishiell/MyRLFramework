@@ -2,12 +2,11 @@
 
 #include "MyMDP.h"
 
+using namespace MyUtil;
+
 MyMDP::MyMDP()
 {
-    transitionProbs_ = {0.05, 0.1, 0.25, 0.9}; 
-    spaceRequirements_ = {1,1,3,3}   ;
-    heloCapacity_ = 10;
-
+    //transitionProbs_ = {0.05, 0.1, 0.25, 0.9}; 
     initializeDecisionSpace();
 }
 
@@ -56,15 +55,15 @@ MyMDP::initializeStateSpace()
 
     int counter = 0;
 
-    for(int i = initialPopulation[0]; i >= 0; i--)
+    for(uShort i = initialPopulation[0]; i >= 0; i--)
     {
-        for(int j = maxPopulation-i; j >= 0; j--)
+        for(uShort j = maxPopulation-i; j >= 0; j--)
         {
-            for(int k = maxPopulation-i-j; k >= 0; k--)
+            for(uShort k = maxPopulation-i-j; k >= 0; k--)
             {
-                for(int l = maxPopulation-i-j-k; l >= 0; l--)
+                for(uShort l = maxPopulation-i-j-k; l >= 0; l--)
                 {
-                    IntArray4d pop = {i, j, k, l};
+                    ShortArray4d pop = {i, j, k, l};
 
                     if(SumArray(pop)<=maxPopulation && SumArray(pop) >= 0)
                     {
@@ -130,16 +129,29 @@ MyMDP::UpdateExogenous()
     IntArray4d exogenousInfo = {0,0,0,0};
 
     // Generate the exogenous information
+    // for(int iTriage = 0; iTriage < population.size(); iTriage++) 
+    // {
+    //     for(int iPerson = 0; iPerson < population[iTriage]; iPerson++)
+    //     {
+    //         if(randomNumber(gen_) < transitionProbs_[iTriage])
+    //         {
+    //             exogenousInfo[iTriage]++;
+    //         }
+    //     }
+    // }
+
+    // This update calculates the expected number of transitions from 
+    // each state, as oppose to sampling the distribution
+    
     for(int iTriage = 0; iTriage < population.size(); iTriage++) 
     {
-        for(int iPerson = 0; iPerson < population[iTriage]; iPerson++)
-        {
-            if(randomNumber(gen_) < transitionProbs_[iTriage])
-            {
-                exogenousInfo[iTriage]++;
-            }
-        }
+        exogenousInfo[iTriage] = population[iTriage]*transitionProbs_[iTriage];
+
+        if(population[iTriage] == 1) exogenousInfo[iTriage] = 1;
+
+        if(population[iTriage] == 0) exogenousInfo[iTriage] = 0;
     }
+
 
     // Apply the exogenous information to the current population
     for(int iTriage = 0; iTriage < population.size(); iTriage++) 
@@ -190,18 +202,43 @@ MyMDP::isLegal(const MyDecisionSharedPtr d, const MyStateSharedPtr s) const
     const auto dArray = d->GetDecisionArray();
     const auto sArray = s->GetTriagePopulations();
     
-    bool retVal = true;
-
+    // Check to make sure there are enough people at the IS
     for(int i = 0; i < dArray.size(); i++)
     {
         if(dArray[i] > sArray[i])
         {
-            retVal = false;
-            break;
+            return false;
         }
     }
 
-    return retVal;
+    // Check to make sure the helicopter is as full as possible
+    int decisionCap = 0;
+    IntArray4d sArrayPrime = {0,0,0,0};
+
+    for(int i = 0; i < dArray.size(); i++)
+    {
+        decisionCap += spaceRequirements_[i]*dArray[i];
+
+        sArrayPrime[i] = sArray[i] - dArray[i];
+    }
+
+    if(decisionCap != heloCapacity_)
+    {
+        int deltaCap = heloCapacity_ - decisionCap;
+
+        for(int i = 0; i < sArrayPrime.size(); i++)
+        {
+            if(sArrayPrime[i] > 0)
+            {
+                if(deltaCap >= spaceRequirements_[i])
+                {
+                    return false;
+                }
+            }
+        }
+    }
+
+    return true;
 }
 
 void 
@@ -249,10 +286,20 @@ MyMDP::SetPolicy(const PolicySharedPtr& decisionPolicy)
         auto pCast = std::dynamic_pointer_cast<QTablePolicy>(decisionPolicy);   
         decisionPolicy_ = std::make_shared<QTablePolicy>(*pCast);
     }
-    else if(policyType == typeid(VFAPolicy<StateDecisionPair>).name())
+    else if(policyType == typeid(GreenFirstPolicy).name())
     {
-        auto pCast = std::dynamic_pointer_cast<VFAPolicy<StateDecisionPair>>(decisionPolicy);   
-        decisionPolicy_ = std::make_shared<VFAPolicy<StateDecisionPair>>(*pCast);
+        auto pCast = std::dynamic_pointer_cast<GreenFirstPolicy>(decisionPolicy);   
+        decisionPolicy_ = std::make_shared<GreenFirstPolicy>(*pCast);
+    }
+    else if(policyType == typeid(LUTPolicy<MyUtil::StateHash, MyUtil::StateEqual>).name())
+    {
+        auto pCast = std::dynamic_pointer_cast<LUTPolicy<MyUtil::StateHash, MyUtil::StateEqual>>(decisionPolicy);   
+        decisionPolicy_ = std::make_shared<LUTPolicy<MyUtil::StateHash, MyUtil::StateEqual>>(*pCast);
+    }
+    else if(policyType == typeid(RandomPolicy).name())
+    {
+        auto pCast = std::dynamic_pointer_cast<RandomPolicy>(decisionPolicy);   
+        decisionPolicy_ = std::make_shared<RandomPolicy>(*pCast);
     }
     else
     {

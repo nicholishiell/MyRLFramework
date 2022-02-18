@@ -22,7 +22,44 @@ using CriticalFirstPolicySharedPtr = std::shared_ptr<CriticalFirstPolicy>;
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-using QTable = LUTValueFunction<StateDecisionPair, StateDecisionHash>;
+class GreenFirstPolicy : public Policy
+{
+public:
+
+    GreenFirstPolicy();
+    ~GreenFirstPolicy();
+
+    DecisionSharedPtr operator() (const StateSharedPtr s) const;
+
+private:
+    
+};
+
+using GreenFirstPolicySharedPtr = std::shared_ptr<GreenFirstPolicy>;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+class RandomPolicy : public Policy
+{
+public:
+
+    RandomPolicy();
+    ~RandomPolicy();
+
+    void SetDecisionSpace(const DecisionSpace ds);
+
+    DecisionSharedPtr operator() (const StateSharedPtr s) const;
+
+private:
+    
+    DecisionSpace fullDecisionSpace_;
+};
+
+using RandomPolicySharedPtr = std::shared_ptr<RandomPolicy>;
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+using QTable = LUTValueFunction<StateDecisionPair, StateDecisionHash, StateDecisionEqual>;
 using QTableSharedPtr = std::shared_ptr<QTable>;
 
 class QTablePolicy : public VFAPolicy<StateDecisionPair>

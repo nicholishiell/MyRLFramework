@@ -10,23 +10,27 @@ class MyState : public State
 {
 public:
 
-    MyState(IntArray4d s);
+    MyState(ShortArray4d s);
 
-    MyState(const int a, const int b, const int c, const int d);
+    MyState(const uShort a, const uShort b, const uShort c, const uShort d);
 
     ~MyState();
 
-    IntArray4d GetTriagePopulations() const;
+    bool IsDecisionLegal(const DecisionSharedPtr& d) const;
+
+    ShortArray4d GetTriagePopulations() const;
     
-    int GetTriagePopulations(int i) const;
+    uShort GetTriagePopulations(int i) const;
 
     std::string ToString() const;
 
     bool operator== (const State& s) const;
 
+    StateSharedPtr clone() const;
+
 private:
 
-    IntArray4d triagePopulations_;
+    ShortArray4d triagePopulations_;
 };
 
 using MyStateSharedPtr = std::shared_ptr<MyState>;

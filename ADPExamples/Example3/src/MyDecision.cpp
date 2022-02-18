@@ -53,3 +53,9 @@ MyDecision::operator== (const Decision& d)
 
     return arrayB[0] == arrayA[0] && arrayB[1] == arrayA[1];
 }
+
+DecisionSharedPtr 
+MyDecision::clone() const
+{
+    return std::make_shared<MyDecision>(*this);
+}

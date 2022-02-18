@@ -13,6 +13,20 @@
 
 struct Step
 {
+    Step()
+    {
+        s = nullptr;
+        d = nullptr;
+        r = 0.;
+    }
+    
+    Step(StateSharedPtr state, DecisionSharedPtr decision, double reward)
+    {
+        s = state;
+        d = decision;
+        r = reward;
+    };
+
     StateSharedPtr s;
     DecisionSharedPtr d;
     double r;
@@ -49,6 +63,7 @@ public:
     virtual DecisionSpace GetLegalDecisions(const StateSharedPtr state) const;
 
     virtual double CalculateContribution() const;
+    virtual double CalculateContribution(const StateSharedPtr state, const DecisionSharedPtr decision) const;
 
     virtual void UpdateDecision();
     
@@ -56,6 +71,9 @@ public:
 
     virtual void Reset();
 
+    virtual void RecordLearning(const Step& s);
+
+    // These functions can be used to help optimize the MDP during development
     double GetdeltaTimeGetDecision() const {return deltaTimeGetDecision_;}
     double GetdeltaTimeCalculateContribution() const{return deltaTimeCalculateContribution_;}
     double GetdeltaTimeUpdateDecision() const{return deltaTimeUpdateDecision_;}

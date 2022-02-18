@@ -4,9 +4,16 @@
 #include <memory>
 
 #include "MDP.h"
+
 #include "MyDecision.h"
 #include "MyState.h"
 #include "MyPolicy.h"
+#include "MyUtil.h"
+
+using namespace MyUtil;
+
+class StateHash;
+class StateEqual;
 
 class MyMDP : public MarkovDecisionProcess
 {
@@ -41,11 +48,7 @@ private:
     void initializeDecisionSpace();
     void initializeStateSpace();
 
-    DecisionSpace fullDecisionSpace_;
-
-    DoubleArray4d transitionProbs_;
-    IntArray4d spaceRequirements_;
-    int heloCapacity_;    
+    DecisionSpace fullDecisionSpace_; 
 };
 
 #endif

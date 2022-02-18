@@ -39,7 +39,13 @@ StateDecisionPair::operator==(const LUTKey& k) const
     return retVal;
 }
 
-std::array<int,8> 
+std::string
+StateDecisionPair::ToString() const
+{
+    return Util::ToString(stateDecisionPair_);
+}
+
+std::array<uShort,8> 
 StateDecisionPair::GetArray() const
 {
     return stateDecisionPair_;

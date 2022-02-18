@@ -3,8 +3,10 @@
 #include "MyPolicy.h"
 #include "MyState.h"
 #include "MyDecision.h"
+#include "MyUtil.h"
 
 using namespace Util;
+using namespace MyUtil;
 
 CriticalFirstPolicy::CriticalFirstPolicy()
 {
@@ -22,12 +24,9 @@ CriticalFirstPolicy::operator() (const StateSharedPtr s) const
     auto sCast = std::dynamic_pointer_cast<MyState>(s);
     auto populationArray = sCast->GetTriagePopulations();
 
-    IntArray4d decisionArray = {0,0,0,0};
+    ShortArray4d decisionArray = {0,0,0,0};
 
-    int CRITICAL_SPACE = 3;
-    int NONCRITICAL_SPACE = 1;
-    int TOTAL_SPACE = 10;
-    int remainingSpace = TOTAL_SPACE;
+    uShort remainingSpace = heloCapacity_;
 
     // Continue whilst there is space on the helo and people at the evac site
     while(remainingSpace > 0 && SumArray(populationArray) > 0)
@@ -68,6 +67,101 @@ CriticalFirstPolicy::operator() (const StateSharedPtr s) const
     }
 
     return std::make_shared<MyDecision>(decisionArray);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+GreenFirstPolicy::GreenFirstPolicy()
+{
+
+}
+
+GreenFirstPolicy::~GreenFirstPolicy()
+{
+
+}
+
+DecisionSharedPtr 
+GreenFirstPolicy::operator() (const StateSharedPtr s) const
+{
+    auto sCast = std::dynamic_pointer_cast<MyState>(s);
+    auto populationArray = sCast->GetTriagePopulations();
+
+    ShortArray4d decisionArray = {0,0,0,0};
+    uShort remainingSpace = heloCapacity_;
+
+    // Continue whilst there is space on the helo and people at the evac site
+    while(remainingSpace > 0 && SumArray(populationArray) > 0)
+    {
+        if(populationArray[1] > 0 && remainingSpace >= NONCRITICAL_SPACE)
+        {
+            populationArray[1]--;
+            decisionArray[1]++;
+
+            remainingSpace -= NONCRITICAL_SPACE;
+        }
+        else if(populationArray[0] > 0 && remainingSpace >= NONCRITICAL_SPACE)
+        {
+            populationArray[0]--;
+            decisionArray[0]++;
+
+            remainingSpace -= NONCRITICAL_SPACE;  
+        }
+        else if(populationArray[2] > 0 && remainingSpace >= CRITICAL_SPACE)
+        {
+            populationArray[2]--;
+            decisionArray[2]++;
+
+            remainingSpace -= CRITICAL_SPACE;
+        }
+        else if(populationArray[3] > 0 && remainingSpace >= CRITICAL_SPACE)
+        {
+            populationArray[3]--;
+            decisionArray[3]++;
+
+            remainingSpace -= CRITICAL_SPACE;
+        }
+        else
+        {
+            // Should NOT get here
+            break;
+        }
+    }
+
+    return std::make_shared<MyDecision>(decisionArray);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+RandomPolicy::RandomPolicy()
+{}
+
+RandomPolicy::~RandomPolicy()
+{}
+
+void
+RandomPolicy::SetDecisionSpace(const DecisionSpace ds)
+{
+    fullDecisionSpace_ = ds;
+}
+
+DecisionSharedPtr 
+RandomPolicy::operator() (const StateSharedPtr s) const
+{
+    DecisionSpace stateDecisionSpace;
+
+    for(const auto d : fullDecisionSpace_)
+    {
+        if(s->IsDecisionLegal(d))
+        {
+            stateDecisionSpace.emplace_back(d);
+        }
+    }
+
+    std::random_shuffle(stateDecisionSpace.begin(),
+                        stateDecisionSpace.end());
+
+    return stateDecisionSpace[0];
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

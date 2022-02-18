@@ -8,25 +8,21 @@
 #include "MyState.h"
 #include "MyDecision.h"
 #include "MyPolicy.h"
+#include "MyUtil.h"
 
 #include "QLearner.h"
 
 using namespace Util;
+using namespace MyUtil;
 
 void MyParamterUpdater(const int nIter, double& alpha, double& epsilon)
 {
-    if(nIter % 10000 == 0)
-    {
-        alpha = 0.9*alpha;
+    double a = 1e5;
+    alpha = a / (a + static_cast<double>(nIter) - 1.);
+}
 
-        if(alpha < 0.0001)
-        {
-            alpha = 0.0001;
-            
-            epsilon = 0.9*epsilon;
-            if(epsilon < 0.1) epsilon = 0.1;
-        }
-    }
+void MyParamterUpdaterEmpty(const int nIter, double& alpha, double& epsilon)
+{
 }
 
 int main()
@@ -36,62 +32,85 @@ int main()
     MyMDP mdp;
     mdp.SetGamma(1.);
 
-    int initPop = 2000;
-    MyStateSharedPtr initialState = std::make_shared<MyState>(initPop,0,0,0);  
+    //MyStateSharedPtr initialState = std::make_shared<MyState>(650,40,30,30);  
+    MyStateSharedPtr initialState = std::make_shared<MyState>(1900,40,30,30);  
     mdp.SetInitialState(initialState);
+
+    MyDecisionSharedPtr defaultDecision = std::make_shared<MyDecision>(0,0,0,0);  
 
     if(true)
     {
-        QLearner<StateDecisionPair, StateDecisionHash> qLearner(1., 0.75);
+        QLearner<   StateDecisionPair, 
+                    StateDecisionHash, StateDecisionEqual,
+                    MyUtil::StateHash, MyUtil::StateEqual> qLearner(1., 0.05);
 
-        qLearner.Learn(mdp, 1001, *MyParamterUpdater);
+        qLearner.Learn(mdp, 500000, *MyParamterUpdater);
 
         QTablePolicySharedPtr qPolicy = std::make_shared<QTablePolicy>( mdp.GetFullDecisionSpace(),
                                                                         qLearner.GetLearnedQTable());
 
-        mdp.SetPolicy(qPolicy);
+        auto learnedPolicy = qLearner.GetLearnedPolicy();
+        learnedPolicy->SetDefaultDecision(defaultDecision);
+
+        learnedPolicy->WriteToFile("./learnedPolicy.dat");
+
+        mdp.SetPolicy(learnedPolicy);
         
         high_resolution_clock::time_point t1 = high_resolution_clock::now();
 
         std::cout << "Learned Policy: " << std::endl;
-        for(int iRun = 0; iRun < 1000; iRun++)
+        for(int iRun = 0; iRun < 100; iRun++)
         {
+            learnedPolicy->ResetDefaultDecisionUsed();
             mdp.Reset();
             mdp.RunEpisode();
-            //std::cout << mdp.GetCumulativeReward() << std::endl;
+            std::cout << "Total Reward: " << mdp.GetCumulativeReward() << std::endl;
         }
-
-        high_resolution_clock::time_point t2 = high_resolution_clock::now();
-        const auto deltaTime = duration_cast<duration<double>>(t2 - t1);
-        std::cout << "QTable size: " << qLearner.GetLearnedQTable()->GetSize() << std::endl;
-        std::cout << "deltaTime: " << deltaTime.count() << std::endl;
-
-        std::cout << mdp.GetdeltaTimeGetDecision() << std::endl;
-        std::cout << mdp.GetdeltaTimeCalculateContribution() << std::endl;
-        std::cout << mdp.GetdeltaTimeUpdateDecision() << std::endl;
-        std::cout << mdp.GetdeltaTimeUpdateExogenous() << std::endl;
-
-        std::cin.get();
     }
 
-    if(false)
+    if(true)
     {
         CriticalFirstPolicySharedPtr critFirstPolicy = std::make_shared<CriticalFirstPolicy>();
         mdp.SetPolicy(critFirstPolicy);
 
-        std::cout << "Critical First: " << std::endl;
-        high_resolution_clock::time_point t1 = high_resolution_clock::now();
-        for(int iRun = 0; iRun < 1000; iRun++)
+        std::cout << "Critical First Policy: " << std::endl;
+        for(int iRun = 0; iRun < 100; iRun++)
         {
             mdp.Reset();
             mdp.RunEpisode();
-        // std::cout << "Total Reward: " << mdp.GetCumulativeReward() << std::endl;
+            std::cout << "Total Reward: " << mdp.GetCumulativeReward() << std::endl;
         }
-        high_resolution_clock::time_point t2 = high_resolution_clock::now();
-        const auto deltaTime = duration_cast<duration<double>>(t2 - t1);
-        std::cout << deltaTime.count() << std::endl;
-        std::cin.get();
     }
+
+    if(true)
+    {
+        GreenFirstPolicySharedPtr greenFirstPolicy = std::make_shared<GreenFirstPolicy>();
+        mdp.SetPolicy(greenFirstPolicy);
+
+        std::cout << "Green First Policy: " << std::endl;
+        for(int iRun = 0; iRun < 100; iRun++)
+        {
+            mdp.Reset();
+            mdp.RunEpisode();
+            std::cout << "Total Reward: " << mdp.GetCumulativeReward() << std::endl;
+        }
+    }
+
+    if(true)
+    {
+        RandomPolicySharedPtr randomPolicy = std::make_shared<RandomPolicy>();
+        randomPolicy->SetDecisionSpace(mdp.GetFullDecisionSpace());
+        mdp.SetPolicy(randomPolicy);
+
+        std::cout << "Random Policy: " << std::endl;
+        for(int iRun = 0; iRun < 100; iRun++)
+        {
+            mdp.Reset();
+            mdp.RunEpisode();
+            std::cout << "Total Reward: " << mdp.GetCumulativeReward() << std::endl;
+        }
+    }
+
     return 0;
 }
 

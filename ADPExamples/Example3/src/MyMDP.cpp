@@ -6,7 +6,7 @@ MyMDP::MyMDP()
 {
     transitionProbs_ = {0.1, 0.9}; 
     spaceRequirements_ = {1,2}   ;
-    heloCapacity_ = 2;
+    heloCapacity_ = 4;
 
     initializeDecisionSpace();
 }

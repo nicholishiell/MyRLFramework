@@ -1,0 +1,8 @@
+ADPFrameworkLib/lib/*
+ADPFrameworkLib/obj/*
+*.json
+Example1
+Example2
+Example3
+Example4
+*.dat

@@ -10,16 +10,16 @@ class MyDecision : public Decision
 {
 public:
 
-    MyDecision(IntArray4d d);
+    MyDecision(ShortArray4d d);
 
-    MyDecision(const int a, const int b, const int c, const int d);
+    MyDecision(const uShort a, const uShort b, const uShort c, const uShort d);
   
     ~MyDecision();
 
     std::string ToString() const;
 
-    IntArray4d GetDecisionArray() const;
-    int GetDecisionArrayElement(const int i) const;
+    ShortArray4d GetDecisionArray() const;
+    uShort GetDecisionArrayElement(const int i) const;
 
     bool operator== (const Decision& d);
 
@@ -27,7 +27,7 @@ public:
 
 private:
 
-    IntArray4d individualsToEvac_;
+    ShortArray4d individualsToEvac_;
 };
 
 using MyDecisionSharedPtr = std::shared_ptr<MyDecision>;

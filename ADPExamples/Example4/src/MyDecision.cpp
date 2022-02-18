@@ -1,11 +1,11 @@
 #include "MyDecision.h"
 
-MyDecision::MyDecision(IntArray4d d)
+MyDecision::MyDecision(ShortArray4d d)
 {
     individualsToEvac_ = d;
 }
 
-MyDecision::MyDecision(const int a, const int b, const int c, const int d)
+MyDecision::MyDecision(const uShort a, const uShort b, const uShort c, const uShort d)
 {
     individualsToEvac_ = {a,b,c,d};
 }
@@ -21,16 +21,16 @@ MyDecision::ToString() const
     return Util::ToString(individualsToEvac_);
 }
 
-IntArray4d 
+ShortArray4d 
 MyDecision::GetDecisionArray() const
 {
     return individualsToEvac_;
 }
 
-int 
+uShort
 MyDecision::GetDecisionArrayElement(const int i) const
 {
-    int retVal = -1;
+    uShort retVal = -1;
 
     if(i < individualsToEvac_.size())
     {

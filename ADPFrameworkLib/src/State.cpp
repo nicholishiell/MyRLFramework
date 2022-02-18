@@ -26,16 +26,15 @@ State::ToString() const
 }
 
 bool 
-State::operator== (const State& s) const
+State::operator== (const StateSharedPtr s) const
 {
     std::cout << "[WARNING] State base class == operator used..." << std::endl;
     return true;
 }
 
-size_t 
-State::operator()(const State& s) const
+StateSharedPtr 
+State::clone() const
 {
-    std::cout << "[WARNING] State base class () operator used..." << std::endl;
-    
-    return 0;
+    std::cout << "[WARNING] State base class clone method used..." << std::endl;
+    return nullptr;    
 }

@@ -20,9 +20,9 @@ public:
   
     virtual std::string ToString() const;
 
-    virtual bool operator== (const State& s) const;
+    virtual bool operator== (const StateSharedPtr s) const;
  
-    virtual size_t operator()(const StateSharedPtr& s) const;
+    virtual StateSharedPtr clone() const;
     
 private:
 

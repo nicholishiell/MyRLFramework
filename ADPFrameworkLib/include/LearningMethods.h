@@ -11,6 +11,7 @@
 #include "MDP.h"
 #include "ValueFunction.h"
 
+/*
 using namespace Util;
 
 namespace LearningMethods
@@ -19,10 +20,10 @@ namespace LearningMethods
     // Helper Functions
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     
-    template<class KEY, class HASH>
+    template<class KEY, class TABLE_HASH>
     DecisionSharedPtr 
     GetEpsilonGreedyAction( const StateSharedPtr state, 
-                            std::shared_ptr<LUTValueFunction<KEY,HASH>> qTable,
+                            std::shared_ptr<LUTValueFunction<KEY,TABLE_HASH>> qTable,
                             DecisionSpace legalDecisionSpace, 
                             const double epsilon, 
                             std::mt19937& gen)
@@ -57,8 +58,8 @@ namespace LearningMethods
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    template<class KEY, class HASH>
-    double MaxDecision( const std::shared_ptr<LUTValueFunction<KEY,HASH>> vf, 
+    template<class KEY, class TABLE_HASH>
+    double MaxDecision( const std::shared_ptr<LUTValueFunction<KEY,TABLE_HASH>> vf, 
                         const StateSharedPtr state, 
                         DecisionSpace legalDecisionSpace)
     {
@@ -80,8 +81,8 @@ namespace LearningMethods
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    template<class KEY, class HASH>
-    void InitializeQTable(  std::shared_ptr<LUTValueFunction<KEY,HASH>> vf,
+    template<class KEY, class TABLE_HASH>
+    void InitializeQTable(  std::shared_ptr<LUTValueFunction<KEY,TABLE_HASH>> vf,
                             const MarkovDecisionProcess& mdp,
                             std::mt19937& gen)
     {
@@ -105,10 +106,10 @@ namespace LearningMethods
     //                                  LEARNING METHODS
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    template<class KEY, class HASH>
+    template<class KEY, class TABLE_HASH>
     void QLearning(MarkovDecisionProcess& mdp, const int numberOfIterations)
     {
-        using LUTValueFunctionSharedPtr = std::shared_ptr<LUTValueFunction<KEY,HASH>>;
+        using LUTValueFunctionSharedPtr = std::shared_ptr<LUTValueFunction<KEY,TABLE_HASH>>;
 
         unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
         std::mt19937 gen(seed);
@@ -119,10 +120,10 @@ namespace LearningMethods
         double alpha = 1.; // learning rate
         double epsilon = 0.75; // greedy
        
-        LUTValueFunctionSharedPtr sdvf = std::make_shared<LUTValueFunction<KEY,HASH>>();
+        LUTValueFunctionSharedPtr sdvf = std::make_shared<LUTValueFunction<KEY,TABLE_HASH>>();
 
         // Arbitrarily define the Q table
-        InitializeQTable<KEY, HASH>(sdvf, mdp, gen);
+        InitializeQTable<KEY, TABLE_HASH>(sdvf, mdp, gen);
         
         // Start Q-Learning
         for(uint iRun = 0; iRun < numberOfIterations; iRun++)
@@ -149,7 +150,7 @@ namespace LearningMethods
             while(!mdp.IsEndState())
             {             
                 // ToDo: this function should just take in the mdp to shorten the arg list
-                DecisionSharedPtr d = GetEpsilonGreedyAction<KEY, HASH>(mdp.GetCurrentState(),
+                DecisionSharedPtr d = GetEpsilonGreedyAction<KEY, TABLE_HASH>(mdp.GetCurrentState(),
                                                                         sdvf, 
                                                                         mdp.GetLegalDecisions(),
                                                                         epsilon, 
@@ -178,4 +179,5 @@ namespace LearningMethods
     } 
 
 };
+*/
 #endif

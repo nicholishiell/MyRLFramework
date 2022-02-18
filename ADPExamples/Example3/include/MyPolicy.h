@@ -22,7 +22,7 @@ using CriticalFirstPolicySharedPtr = std::shared_ptr<CriticalFirstPolicy>;
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-using QTable = LUTValueFunction<StateDecisionPair, StateDecisionHash>;
+using QTable = LUTValueFunction<StateDecisionPair, StateDecisionHash, StateDecisionEqual>;
 using QTableSharedPtr = std::shared_ptr<QTable>;
 
 class QTablePolicy : public VFAPolicy<StateDecisionPair>
